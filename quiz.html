@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Fill-in-the-Blanks — Multiple Questions</title>
+    <title>Fill-in-the-Blanks — Quiz</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -29,6 +29,22 @@
         <button id="checkAll">Check All</button>
         <button id="resetAll" class="secondary">Reset</button>
       </div>
+
+      <section id="leaderboard" style="margin-top: 1.5rem">
+        <h2 style="margin: 0 0 0.5rem; font-size: 1rem">Leaderboard</h2>
+        <div
+          id="leaderboardList"
+          style="
+            min-height: 48px;
+            border-radius: 8px;
+            padding: 0.6rem;
+            background: linear-gradient(180deg, #fff, #fbfdff);
+            box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.02);
+          "
+        >
+          <!-- filled by script -->
+        </div>
+      </section>
 
       <div class="hint">
         Answers accept common variants (case-insensitive). Use the A+ / A−

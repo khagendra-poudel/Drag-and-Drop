@@ -23,7 +23,7 @@ const quizData = [
       "central processing unit",
       "central processing unit (cpu)",
     ],
-    bank: ["CPU (Central Processing Unit)", "GPU", "motherboard", "RAM"],
+    bank: ["CPU", "GPU", "motherboard", "RAM"],
   },
   {
     text: "A computer follows the {1} cycle.",
@@ -179,7 +179,9 @@ function render() {
       btn.className = "word";
       btn.type = "button";
       btn.draggable = true;
-      btn.setAttribute("data-word", w);
+  btn.setAttribute("data-word", w);
+  // color variant for playful look
+  btn.classList.add(`color-${bankIdx % 4}`);
       // tag button with its question index and bank index so we can restore it later
       btn.setAttribute("data-q", idx);
       btn.setAttribute("data-bank-idx", bankIdx);
@@ -296,6 +298,9 @@ function checkAll() {
     }
   });
   feedbackEl.innerHTML = `<div style="font-weight:600">Score: ${correctCount} / ${quizData.length}</div>`;
+  // save to leaderboard
+  saveScoreToLeaderboard(correctCount, quizData.length);
+  renderLeaderboard();
 }
 
 function resetAll() {
@@ -335,6 +340,59 @@ document.addEventListener("keydown", (ev) => {
 
 // initial render
 render();
+
+// leaderboard utilities
+const lbKey = 'quiz-leaderboard';
+const nameKey = 'player-name';
+
+function getPlayerName() {
+  return (localStorage.getItem(nameKey) || 'Anonymous').trim();
+}
+
+function saveScoreToLeaderboard(score, total) {
+  try {
+    const raw = localStorage.getItem(lbKey) || '[]';
+    const list = JSON.parse(raw);
+    const entry = { name: getPlayerName(), score: score, total: total, ts: Date.now() };
+    // push and sort by highest score, then recent
+    list.push(entry);
+    list.sort((a,b) => b.score - a.score || b.ts - a.ts);
+    // keep top 50
+    const trimmed = list.slice(0,50);
+    localStorage.setItem(lbKey, JSON.stringify(trimmed));
+  } catch (e) {
+    console.error('Failed to save leaderboard', e);
+  }
+}
+
+function renderLeaderboard() {
+  const el = document.getElementById('leaderboardList');
+  if (!el) return;
+  try {
+    const raw = localStorage.getItem(lbKey) || '[]';
+    const list = JSON.parse(raw);
+    if (!list.length) {
+      el.innerHTML = '<div class="leaderboard-empty">No scores yet. Play to be first!</div>';
+      return;
+    }
+    const rows = list.slice(0,10).map((r, i) => `
+      <div class="leaderboard-item">
+        <div class="name">${escapeHtml(r.name || 'Anonymous')}</div>
+        <div class="score">${r.score}/${r.total}</div>
+      </div>
+    `).join('');
+    el.innerHTML = rows;
+  } catch (e) {
+    el.innerHTML = '';
+  }
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>\"']/g, function (s) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[s]; });
+}
+
+// render leaderboard once on load
+renderLeaderboard();
 
 // debugging: expose state
 window._quiz = { quizData, state };
