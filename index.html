@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fill-in-the-Blanks — Multiple Questions</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="font-controls" aria-hidden="false">
+      <button id="fontInc" aria-label="Increase font size">A+</button>
+      <button id="fontDec" aria-label="Decrease font size">A−</button>
+    </div>
+
+    <div
+      class="container"
+      role="application"
+      aria-label="Fill-in-the-blanks quiz"
+    >
+      <h1>Fill-in-the-Blanks — Computer Basics</h1>
+      <p class="lead">
+        Drag the correct word into each blank. Keyboard: Tab to a word, Enter to
+        pick it, then Enter on the blank to place.
+      </p>
+
+      <div id="quiz"></div>
+
+      <div class="controls">
+        <button id="checkAll">Check All</button>
+        <button id="resetAll" class="secondary">Reset</button>
+      </div>
+
+      <div class="hint">
+        Answers accept common variants (case-insensitive). Use the A+ / A−
+        buttons to change font size; the preference is saved.
+      </div>
+      <div class="feedback" id="feedback" aria-live="polite"></div>
+    </div>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
