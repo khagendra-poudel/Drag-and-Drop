@@ -2,6 +2,7 @@
   --base-size: 16px;
   --fg: #111;
   --muted: #666;
+  --anim-duration: 220ms;
 }
 html {
   font-size: var(--base-size);
@@ -51,6 +52,7 @@ p.lead {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.5rem;
+  align-items: flex-start;
 }
 .word {
   padding: 0.375rem 0.625rem;
@@ -61,7 +63,8 @@ p.lead {
   user-select: none;
   border: 0;
   font-size: 1rem;
-  transition: font-size 120ms ease, padding 120ms ease;
+  transition: transform var(--anim-duration) ease, opacity var(--anim-duration) ease, background-color var(--anim-duration) ease, color var(--anim-duration) ease, padding 120ms ease;
+  will-change: transform, opacity;
 }
 
 /* make option "cards" more touch-friendly */
@@ -74,6 +77,46 @@ p.lead {
   border-radius: 8px;
   touch-action: manipulation;
   -webkit-tap-highlight-color: rgba(0,0,0,0.06);
+}
+
+/* keep option positions stable by assigning a fixed basis per item */
+.word {
+  box-sizing: border-box;
+  flex: 0 0 calc(25% - 0.375rem); /* four columns on desktop */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* when an item is placed, fade it but keep its space */
+.word.placed {
+  opacity: 0.08;
+  transform: translateY(6px) scale(0.985);
+  transition: transform var(--anim-duration) ease, opacity var(--anim-duration) ease;
+  pointer-events: none;
+}
+
+/* animate blanks when receiving a word */
+.blank {
+  transition: background var(--anim-duration) ease, transform calc(var(--anim-duration) - 60ms) ease, color var(--anim-duration) ease;
+}
+.blank.pulse {
+  transform: translateY(-2px) scale(1.02);
+}
+.blank.placed-in {
+  animation: placedIn 260ms ease both;
+}
+.blank.removed {
+  animation: removedOut 180ms ease both;
+}
+
+@keyframes placedIn {
+  from { transform: translateY(-6px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes removedOut {
+  from { transform: translateY(0) scale(1); opacity: 1; }
+  to { transform: translateY(4px) scale(0.98); opacity: 0.6; }
 }
 .controls {
   display: flex;
@@ -160,10 +203,11 @@ button:focus {
     gap: 0.6rem;
   }
   .word {
-    font-size: 1.05rem;
-    padding: 0.6rem 0.9rem;
-    min-height: 48px;
-    border-radius: 10px;
+  font-size: 1.05rem;
+  padding: 0.6rem 0.9rem;
+  min-height: 48px;
+  border-radius: 10px;
+  flex: 0 0 calc(50% - 0.5rem); /* two columns on mobile */
   }
   .controls {
     flex-direction: column;

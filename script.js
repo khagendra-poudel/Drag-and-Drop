@@ -102,7 +102,7 @@ const quizData = [
 
 const quizEl = document.getElementById("quiz");
 const feedbackEl = document.getElementById("feedback");
-const state = { placement: {}, grabbed: null };
+const state = { placement: {}, grabbed: null, placedButton: {} };
 
 // Fisher-Yates shuffle (in-place) — returns the same array for convenience
 function shuffle(arr) {
@@ -174,12 +174,15 @@ function render() {
   bank.className = "word-bank";
   // shuffle a copy of the bank so the correct (original first) option isn't always first
   const bankItems = shuffle(q.bank.slice());
-  bankItems.forEach((w) => {
+  bankItems.forEach((w, bankIdx) => {
       const btn = document.createElement("button");
       btn.className = "word";
       btn.type = "button";
       btn.draggable = true;
       btn.setAttribute("data-word", w);
+      // tag button with its question index and bank index so we can restore it later
+      btn.setAttribute("data-q", idx);
+      btn.setAttribute("data-bank-idx", bankIdx);
       btn.textContent = w;
       btn.addEventListener("dragstart", (ev) => {
         ev.dataTransfer.setData("text/plain", w);
@@ -192,8 +195,9 @@ function render() {
         state.grabbed = null;
       });
       btn.addEventListener("click", () => {
-        state.grabbed = state.grabbed === w ? null : w;
-        updateBankState();
+  if (btn.disabled) return;
+  state.grabbed = state.grabbed === w ? null : w;
+  updateBankState();
       });
       btn.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" || ev.key === " ") {
@@ -201,7 +205,7 @@ function render() {
           btn.click();
         }
       });
-      bank.appendChild(btn);
+  bank.appendChild(btn);
     });
 
     qWrap.appendChild(bankTitle);
@@ -212,23 +216,54 @@ function render() {
 
 function placeWord(qIdx, slotNum, word) {
   const slotKey = `${qIdx}-${slotNum}`;
+  // if there's already a word placed here, restore its bank button
+  if (state.placedButton[slotKey]) {
+    const prevBtn = state.placedButton[slotKey];
+  prevBtn.disabled = false;
+  prevBtn.classList.remove("placed");
+  delete state.placedButton[slotKey];
+  }
+
+  // find the bank button for the new word within this question and hide/disable it
+  const bankBtn = quizEl.querySelector(`.word[data-word="${CSS.escape(word)}"][data-q="${qIdx}"]`);
+  if (bankBtn) {
+  bankBtn.disabled = true;
+  bankBtn.classList.add("placed");
+  state.placedButton[slotKey] = bankBtn;
+  }
+
   state.placement[slotKey] = word;
   const slotEl = quizEl.querySelector(`[data-slot='${slotKey}']`);
   if (slotEl) {
     slotEl.textContent = word;
     slotEl.classList.remove("empty", "incorrect", "correct");
+  // small pulse animation
+  slotEl.classList.add("pulse", "placed-in");
+  // remove placed-in after animation
+  setTimeout(() => slotEl.classList.remove("placed-in"), 300);
+  setTimeout(() => slotEl.classList.remove("pulse"), 220);
   }
   updateBankState();
 }
 
 function removeWord(qIdx, slotNum) {
   const key = `${qIdx}-${slotNum}`;
+  // restore bank button state if we had marked one as placed
+  if (state.placedButton[key]) {
+    const b = state.placedButton[key];
+  b.disabled = false;
+  b.classList.remove("placed");
+    delete state.placedButton[key];
+  }
   delete state.placement[key];
   const slotEl = quizEl.querySelector(`[data-slot='${key}']`);
   if (slotEl) {
     slotEl.textContent = "—";
     slotEl.classList.add("empty");
     slotEl.classList.remove("correct", "incorrect");
+  // trigger removed animation
+  slotEl.classList.add("removed");
+  setTimeout(() => slotEl.classList.remove("removed"), 220);
   }
 }
 
