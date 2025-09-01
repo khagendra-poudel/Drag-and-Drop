@@ -24,8 +24,30 @@ body {
   margin: 0 auto;
   background: var(--card-bg);
   border-radius: 10px;
-  padding: 1.25rem;
+  /* use modest top padding; home button will be inline in the flow */
+  padding: 1.5rem 1.25rem 1.25rem 1.25rem;
+  position: relative;
   box-shadow: 0 6px 24px rgba(12, 18, 30, 0.08);
+}
+/* small home button inside quiz container */
+.container .home-btn {
+  /* place the home button inline at the top-left so it doesn't overlap content */
+  position: static;
+  display: inline-block;
+  margin: 0 0 0.75rem 0;
+  background: linear-gradient(90deg,var(--accent-4),var(--accent-3));
+  color: #05223c;
+  text-decoration: none;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-weight:700;
+  box-shadow: 0 8px 20px rgba(11,55,102,0.08);
+}
+
+@media (max-width: 520px) {
+  /* small screens: ensure button sits above content with a bit of spacing */
+  .container { padding-top: 1.25rem; }
+  .container .home-btn { display: inline-block; margin-bottom: 0.5rem; }
 }
 h1 {
   margin: 0 0 0.5rem;
