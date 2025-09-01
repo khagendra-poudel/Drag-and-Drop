@@ -207,6 +207,87 @@ function render() {
           btn.click();
         }
       });
+      // touch handlers for mobile drag gestures
+      (function () {
+        let touchState = null; // { startX, startY, moved, ghost }
+
+        function makeGhost(el, x, y) {
+          const g = el.cloneNode(true);
+          g.style.position = 'fixed';
+          g.style.left = (x - el.offsetWidth / 2) + 'px';
+          g.style.top = (y - el.offsetHeight / 2) + 'px';
+          g.style.width = el.offsetWidth + 'px';
+          g.style.pointerEvents = 'none';
+          g.style.zIndex = 9999;
+          g.style.opacity = '0.95';
+          g.style.transform = 'translateZ(0) scale(1.02)';
+          g.classList.add('touch-ghost');
+          document.body.appendChild(g);
+          return g;
+        }
+
+        btn.addEventListener('touchstart', function (ev) {
+          if (btn.disabled) return;
+          const t = ev.changedTouches[0];
+          touchState = { startX: t.clientX, startY: t.clientY, moved: false, ghost: makeGhost(btn, t.clientX, t.clientY) };
+          state.grabbed = w;
+          updateBankState();
+          ev.preventDefault();
+        }, { passive: false });
+
+        btn.addEventListener('touchmove', function (ev) {
+          if (!touchState) return;
+          const t = ev.changedTouches[0];
+          const dx = t.clientX - touchState.startX;
+          const dy = t.clientY - touchState.startY;
+          if (Math.hypot(dx, dy) > 8) touchState.moved = true;
+          if (touchState.ghost) {
+            touchState.ghost.style.left = (t.clientX - btn.offsetWidth / 2) + 'px';
+            touchState.ghost.style.top = (t.clientY - btn.offsetHeight / 2) + 'px';
+          }
+          ev.preventDefault();
+        }, { passive: false });
+
+        btn.addEventListener('touchend', function (ev) {
+          if (!touchState) return;
+          const t = ev.changedTouches[0];
+          const ghost = touchState.ghost;
+          // if it was a tap (no meaningful move), toggle selection
+          if (!touchState.moved) {
+            state.grabbed = state.grabbed === w ? null : w;
+            updateBankState();
+            if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            touchState = null;
+            ev.preventDefault();
+            return;
+          }
+          // detect element under touch
+          const target = document.elementFromPoint(t.clientX, t.clientY);
+          let slot = target && target.closest && target.closest('.blank');
+          if (slot) {
+            const slotKey = slot.getAttribute('data-slot');
+            if (slotKey) {
+              const parts = slotKey.split('-');
+              const qIdx = parseInt(parts[0], 10);
+              const slotNum = parts[1];
+              placeWord(qIdx, slotNum, w);
+            }
+          }
+          if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+          touchState = null;
+          state.grabbed = null;
+          updateBankState();
+          ev.preventDefault();
+        }, { passive: false });
+
+        btn.addEventListener('touchcancel', function (ev) {
+          if (!touchState) return;
+          if (touchState.ghost && touchState.ghost.parentNode) touchState.ghost.parentNode.removeChild(touchState.ghost);
+          touchState = null;
+          state.grabbed = null;
+          updateBankState();
+        });
+      })();
   bank.appendChild(btn);
     });
 

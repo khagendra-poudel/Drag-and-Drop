@@ -82,7 +82,8 @@ p.lead {
   min-height: 44px; /* comfortable touch target */
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
-  touch-action: manipulation;
+  /* allow JS to handle touch-drag gestures */
+  touch-action: none;
   -webkit-tap-highlight-color: rgba(0,0,0,0.06);
 }
 
@@ -109,6 +110,13 @@ p.lead {
   transform: translateY(6px) scale(0.985);
   transition: transform var(--anim-duration) ease, opacity var(--anim-duration) ease;
   pointer-events: none;
+}
+
+/* ghost element used during touch-drag */
+.touch-ghost {
+  box-shadow: 0 12px 30px rgba(11,55,102,0.12);
+  border-radius: 10px;
+  transform-origin: center center;
 }
 
 /* animate blanks when receiving a word */
