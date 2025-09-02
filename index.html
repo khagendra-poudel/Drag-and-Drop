@@ -139,6 +139,15 @@
           <a id="startBtn" class="button" href="quiz.html">Start the Quiz ➜</a>
         </div>
         <div id="lb-preview" style="margin-top: 1rem; text-align: left"></div>
+        <div style="margin-top: 0.6rem; text-align: left">
+          <button
+            id="resetLeaderboard"
+            class="secondary"
+            style="padding: 0.45rem 0.6rem; border-radius: 8px"
+          >
+            Reset Leaderboard
+          </button>
+        </div>
         <div class="small">
           Tip: Use touch or drag-and-drop. Press A+ to make text bigger.
         </div>
@@ -207,6 +216,16 @@
           else localStorage.removeItem(nameKey);
           // allow navigation to quiz.html (anchor)
         });
+
+        const resetBtn = document.getElementById("resetLeaderboard");
+        if (resetBtn) {
+          resetBtn.addEventListener("click", () => {
+            if (!confirm("Clear the leaderboard? This cannot be undone."))
+              return;
+            localStorage.removeItem(lbKey);
+            renderPreview();
+          });
+        }
 
         renderPreview();
       })();

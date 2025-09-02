@@ -475,5 +475,15 @@ function escapeHtml(str){
 // render leaderboard once on load
 renderLeaderboard();
 
+// reset leaderboard button (on quiz page)
+const resetLbBtn = document.getElementById('resetLeaderboard');
+if (resetLbBtn) {
+  resetLbBtn.addEventListener('click', () => {
+    if (!confirm('Clear the leaderboard? This cannot be undone.')) return;
+    localStorage.removeItem(lbKey);
+    renderLeaderboard();
+  });
+}
+
 // debugging: expose state
 window._quiz = { quizData, state };

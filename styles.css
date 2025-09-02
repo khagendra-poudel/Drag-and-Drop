@@ -34,14 +34,20 @@ body {
   /* place the home button inline at the top-left so it doesn't overlap content */
   position: static;
   display: inline-block;
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 0.9rem 0;
   background: linear-gradient(90deg,var(--accent-4),var(--accent-3));
   color: #05223c;
   text-decoration: none;
-  padding: 0.35rem 0.65rem;
-  border-radius: 999px;
-  font-weight:700;
-  box-shadow: 0 8px 20px rgba(11,55,102,0.08);
+  padding: 0.6rem 0.9rem; /* larger tap target */
+  border-radius: 12px;
+  font-weight:800;
+  font-size: 1rem;
+  box-shadow: 0 12px 30px rgba(11,55,102,0.12);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.container .home-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 38px rgba(11,55,102,0.14);
 }
 
 @media (max-width: 520px) {
