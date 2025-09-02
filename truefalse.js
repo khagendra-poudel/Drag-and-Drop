@@ -104,8 +104,41 @@ function renderLeaderboardTF() {
     const raw = localStorage.getItem(lbKey) || '[]';
     const list = JSON.parse(raw);
     if (!list.length) { el.innerHTML = '<div style="color:rgba(6,26,41,0.7)">No scores yet.</div>'; return; }
-    el.innerHTML = list.slice(0,5).map((r,i) => `<div style="display:flex; justify-content:space-between; padding:0.25rem 0; border-bottom:1px dashed rgba(0,0,0,0.04)">${i+1}. <strong>${escapeHtml(r.name||'Anonymous')}</strong> <span style="color:#666">${r.score}/${r.total}</span></div>`).join('');
+    el.innerHTML = list.slice(0,5).map((r,i) => `<div class="leaderboard-item"><div class="name"><a href="#" data-tf-lb-index="${i}" class="tf-lb-link">${i+1}. ${escapeHtml(r.name||'Anonymous')}</a></div><div class="score">${r.score}/${r.total}</div></div>`).join('');
+    // wire links
+    const links = el.querySelectorAll('.tf-lb-link');
+    links.forEach((lnk) => {
+      lnk.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const idx = parseInt(lnk.getAttribute('data-tf-lb-index'), 10);
+        showTFHistory(list[idx]);
+      });
+    });
   } catch (e) { el.innerHTML = ''; }
+}
+
+function showTFHistory(entry) {
+  const modal = document.getElementById('tfHistoryModal');
+  const body = document.getElementById('tfModalBody');
+  const title = document.getElementById('tfModalTitle');
+  if (!modal || !body || !title) return;
+  title.textContent = `Attempt by ${escapeHtml(entry.name||'Anonymous')} — ${entry.score}/${entry.total}`;
+  const items = tfData.map((q, idx) => {
+    const placed = entry.placedAnswers && typeof entry.placedAnswers[idx] !== 'undefined' ? (entry.placedAnswers[idx] === null ? '—' : String(entry.placedAnswers[idx])) : '—';
+    const ok = !(entry.wrong && entry.wrong.find(w => w.q === idx));
+    return `<div style="padding:0.4rem 0; border-bottom:1px solid rgba(0,0,0,0.04);"><div style="font-weight:700">Q${idx+1}: ${escapeHtml(q.stmt)}</div><div>${ok ? '<span class="ok">Correct</span>' : '<span class="miss">Incorrect</span>'} — Your answer: <strong>${escapeHtml(placed)}</strong></div></div>`;
+  }).join('');
+  body.innerHTML = items;
+  modal.setAttribute('aria-hidden','false');
+}
+
+// modal close wiring for TF modal
+const tfModal = document.getElementById('tfHistoryModal');
+if (tfModal) {
+  const close = document.getElementById('tfModalClose');
+  close && close.addEventListener('click', () => tfModal.setAttribute('aria-hidden','true'));
+  const backdrop = tfModal.querySelector('.modal-backdrop');
+  backdrop && backdrop.addEventListener('click', () => tfModal.setAttribute('aria-hidden','true'));
 }
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(ch){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[ch]; }); }

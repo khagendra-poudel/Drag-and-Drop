@@ -8,9 +8,14 @@
   </head>
   <body>
     <div class="container">
-      <a class="home-btn" href="index.html" aria-label="Go to homepage"
-        >🏠 Home</a
-      >
+      <div class="top-row">
+        <a class="home-btn" href="index.html" aria-label="Go to homepage"
+          >🏠 Home</a
+        >
+        <a class="back-quiz" href="quiz.html" aria-label="Back to previous quiz"
+          >◀ Back to Quiz</a
+        >
+      </div>
       <h1>True / False — Computer Basics</h1>
       <p class="lead">Read the statement and pick True or False.</p>
 
@@ -19,7 +24,7 @@
       <div class="controls">
         <div id="tf-feedback" class="feedback" aria-live="polite"></div>
         <div style="margin-top: 0.6rem">
-          <button id="tfCheck" class="primary">Check Answers</button>
+          <button id="tfCheck" class="primary">Submit</button>
           <button id="tfReset" class="secondary">Reset</button>
         </div>
       </div>
@@ -36,16 +41,30 @@
               border-radius: 8px;
             "
           ></div>
-          <div style="margin-top:0.6rem; text-align:left">
-            <button id="tfResetLeaderboard" class="secondary" style="padding:0.45rem 0.6rem; border-radius:8px">Reset Leaderboard</button>
+          <div style="margin-top: 0.6rem; text-align: left">
+            <button
+              id="tfResetLeaderboard"
+              class="secondary"
+              style="padding: 0.45rem 0.6rem; border-radius: 8px"
+            >
+              Reset Leaderboard
+            </button>
           </div>
-        </div>
-            
-          </button>
         </div>
       </section>
     </div>
 
     <script src="truefalse.js" defer></script>
+    <!-- history modal for True/False attempts -->
+    <div id="tfHistoryModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel" role="dialog" aria-modal="true">
+        <button id="tfModalClose" class="modal-close" aria-label="Close">
+          ✕
+        </button>
+        <h3 id="tfModalTitle">Attempt details</h3>
+        <div id="tfModalBody" class="modal-body"></div>
+      </div>
+    </div>
   </body>
 </html>

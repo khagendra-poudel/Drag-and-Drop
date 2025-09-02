@@ -537,44 +537,7 @@ function showHistoryFor(entry) {
   body.innerHTML = items;
   modal.setAttribute('aria-hidden','false');
 
-  // wire export button to download this attempt as CSV
-  const exportBtn = document.getElementById('modalExport');
-  if (exportBtn) {
-    // remove previous handler by cloning
-    const newBtn = exportBtn.cloneNode(true);
-    exportBtn.parentNode.replaceChild(newBtn, exportBtn);
-    newBtn.addEventListener('click', () => {
-      try {
-        const rows = [];
-        // header
-        rows.push(['Question #', 'Question Text', 'Your Answer', 'Correct Answer(s)', 'Status']);
-        quizData.forEach((q, idx) => {
-          const placed = entry.placedAnswers && entry.placedAnswers[idx] ? entry.placedAnswers[idx] : '';
-          const correct = q.answers ? q.answers.join(' / ') : '';
-          const wrongObj = entry.wrong.find(w => w.q === idx);
-          const status = wrongObj ? 'Incorrect' : 'Correct';
-          rows.push([String(idx+1), q.text.replace(/\{\d+\}/g, '____'), placed, correct, status]);
-        });
-        // build CSV content with proper escaping
-        const csv = rows.map(r => r.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        const namePart = (entry.name || 'attempt').replace(/[^a-z0-9_\-]/gi, '_');
-        const date = new Date(entry.ts || Date.now());
-        const stamp = date.toISOString().replace(/[:.]/g, '-');
-        a.href = url;
-        a.download = `quiz_attempt_${namePart}_${stamp}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error('Export failed', err);
-        alert('Failed to export CSV');
-      }
-    });
-  }
+  // CSV export removed — attempts are viewable in the modal but not downloadable
 }
 
 // modal close behavior
