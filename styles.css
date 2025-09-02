@@ -176,6 +176,35 @@ p.lead {
   /* increased spacing so controls sit further from the option bank */
   margin-top: 1.75rem;
 }
+
+.timer {
+  background: linear-gradient(90deg, rgba(6,26,41,0.06), rgba(6,26,41,0.02));
+  color: var(--fg);
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* sticky timer at top center */
+.sticky-timer {
+  position: fixed;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  background: #000; /* solid black */
+  color: #fff;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.32);
+  z-index: 1200;
+  font-weight: 800;
+}
+
+@media (max-width: 520px) {
+  .sticky-timer { top: 6px; padding: 0.35rem 0.6rem; }
+}
 button {
   padding: 0.5rem 0.75rem;
   border: 0;
@@ -237,6 +266,26 @@ button.secondary {
 }
 .leaderboard-item .name { font-weight:700; }
 .leaderboard-empty { color: rgba(6,26,41,0.6); padding:0.5rem 0.25rem; }
+
+/* make leaderboard name clickable */
+.leaderboard-item a { color: inherit; text-decoration: underline; cursor: pointer; }
+
+/* modal */
+.modal { display: none; }
+.modal[aria-hidden="false"] { display: block; }
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(6,26,41,0.48); z-index: 1400;
+}
+.modal-panel {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  background: #fff; border-radius: 12px; padding: 1rem; width: min(680px, 92vw);
+  z-index: 1410; box-shadow: 0 24px 60px rgba(6,26,41,0.18);
+}
+.modal-close { position: absolute; right: 12px; top: 12px; border:0; background:transparent; font-size:1.1rem; }
+.modal-export { position: absolute; right: 76px; top: 12px; border:0; background:linear-gradient(90deg,var(--accent-2),var(--accent-1)); padding:0.35rem 0.6rem; border-radius:8px; font-weight:700; }
+.modal-body { margin-top: 0.6rem; max-height: 60vh; overflow:auto; }
+.modal-body .miss { color: var(--accent-1); font-weight:700; }
+.modal-body .ok { color: #07532f; font-weight:700; }
 .correct {
   background: linear-gradient(90deg, #dff6e9, #b8f0d1);
   color: #07532f;

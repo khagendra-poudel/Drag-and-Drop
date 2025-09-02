@@ -96,13 +96,13 @@ const quizData = [
   {
     text: "The speed of a computer is measured in {1}.",
     answers: ["hz", "Hertz", "hz (hertz)"],
-    bank: ["Hertz", "MegaHertz", "beats per second", "KiloHertz"],
+    bank: ["Hertz", "MegaHertz", "beats/second", "KiloHertz"],
   },
 ];
 
 const quizEl = document.getElementById("quiz");
 const feedbackEl = document.getElementById("feedback");
-const state = { placement: {}, grabbed: null, placedButton: {} };
+const state = { placement: {}, grabbed: null, placedButton: {}, checkedThisRound: false };
 
 // Fisher-Yates shuffle (in-place) — returns the same array for convenience
 function shuffle(arr) {
@@ -191,6 +191,8 @@ function render() {
         ev.dataTransfer.effectAllowed = "move";
         state.grabbed = w;
         btn.setAttribute("aria-grabbed", "true");
+  // start timer when user begins moving a word (desktop drag)
+  if (!state.checkedThisRound && !timerInterval) startTimer();
       });
       btn.addEventListener("dragend", (ev) => {
         btn.setAttribute("aria-grabbed", "false");
@@ -245,6 +247,8 @@ function render() {
                 // mark grabbed once drag begins
                 state.grabbed = w;
                 updateBankState();
+                // start timer when touch drag begins
+                if (!state.checkedThisRound && !timerInterval) startTimer();
               }
             }, HOLD_DELAY),
           };
@@ -264,6 +268,8 @@ function render() {
             touchState.ghost = makeGhost(btn, t.clientX, t.clientY);
             state.grabbed = w;
             updateBankState();
+            // start timer once the user has initiated a touch-drag
+            if (!state.checkedThisRound && !timerInterval) startTimer();
             // once ghost exists, prevent scrolling
             ev.preventDefault();
           }
@@ -388,7 +394,16 @@ function updateBankState() {
   });
 }
 
-function checkAll() {
+function checkAll(manual = false) {
+  // prevent double-checking the same round
+  if (state.checkedThisRound) return;
+  if (manual) {
+    // stop the running timer when user manually checks
+    stopTimer();
+    // disable manual checking button until reset
+    const chkBtn = document.getElementById('checkAll');
+    if (chkBtn) chkBtn.disabled = true;
+  }
   let correctCount = 0;
   quizData.forEach((q, idx) => {
     const slotKey = `${idx}-1`;
@@ -409,15 +424,27 @@ function checkAll() {
     }
   });
   feedbackEl.innerHTML = `<div style="font-weight:600">Score: ${correctCount} / ${quizData.length}</div>`;
-  // save to leaderboard
+  // save to leaderboard (only once per round)
   saveScoreToLeaderboard(correctCount, quizData.length);
   renderLeaderboard();
+  state.checkedThisRound = true;
+  // if this was a manual check, schedule an automatic reset (mirrors timer expiry behavior)
+  if (manual) {
+    setTimeout(() => {
+      resetAll();
+    }, 1200);
+  }
 }
 
 function resetAll() {
+  // clear placements and prepare for a new round
   state.placement = {};
   state.grabbed = null;
   feedbackEl.innerHTML = "";
+  // clear checked flag and re-enable check button
+  state.checkedThisRound = false;
+  const chkBtn = document.getElementById('checkAll');
+  if (chkBtn) chkBtn.disabled = false;
   render();
 }
 
@@ -451,6 +478,65 @@ document.addEventListener("keydown", (ev) => {
 
 // initial render
 render();
+// timer: 60s default
+const TIMER_DURATION = 60; // seconds
+let timerRemaining = TIMER_DURATION;
+let timerInterval = null;
+
+function updateTimerDisplay() {
+  const tEl = document.getElementById('timer');
+  if (!tEl) return;
+  tEl.textContent = `Time: ${timerRemaining}s`;
+}
+  
+// keep sticky timer in sync
+function updateTimerDisplayAndSticky() {
+  updateTimerDisplay();
+  updateStickyTimer();
+}
+
+function updateStickyTimer() {
+  const s = document.getElementById('stickyTimer');
+  if (!s) return;
+  s.textContent = `Time: ${timerRemaining}s`;
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function startTimer(duration = TIMER_DURATION) {
+  stopTimer();
+  timerRemaining = duration;
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timerRemaining -= 1;
+    if (timerRemaining <= 0) {
+      stopTimer();
+      updateTimerDisplayAndSticky();
+      // if the user already manually checked this round, just reset; otherwise auto-check then reset
+      if (state.checkedThisRound) {
+        // only reset
+        setTimeout(() => {
+          resetAll();
+        }, 200);
+      } else {
+        checkAll(false);
+        // show results briefly then reset fields
+        setTimeout(() => {
+          resetAll();
+        }, 1200);
+      }
+      return;
+    }
+    updateTimerDisplayAndSticky();
+  }, 1000);
+}
+
+// timer is started only when user begins interaction (drag/touch)
 
 // leaderboard utilities
 const lbKey = 'quiz-leaderboard';
@@ -464,7 +550,19 @@ function saveScoreToLeaderboard(score, total) {
   try {
     const raw = localStorage.getItem(lbKey) || '[]';
     const list = JSON.parse(raw);
-    const entry = { name: getPlayerName(), score: score, total: total, ts: Date.now() };
+    // also record which questions were wrong on this attempt
+      const wrong = [];
+      // snapshot of placed answers for every question (may be null)
+      const placedAnswers = quizData.map((q, idx) => state.placement[`${idx}-1`] || null);
+      quizData.forEach((q, idx) => {
+        const slotKey = `${idx}-1`;
+        const placed = (String(placedAnswers[idx] || "")).toLowerCase().trim();
+        const acceptable = q.answers.map((a) => a.toLowerCase());
+        if (!(placed && acceptable.includes(placed))) {
+          wrong.push({ q: idx, placed: placedAnswers[idx] || null });
+        }
+      });
+      const entry = { name: getPlayerName(), score: score, total: total, ts: Date.now(), wrong, placedAnswers };
     // push and sort by highest score, then recent
     list.push(entry);
     list.sort((a,b) => b.score - a.score || b.ts - a.ts);
@@ -488,14 +586,93 @@ function renderLeaderboard() {
     }
     const rows = list.slice(0,10).map((r, i) => `
       <div class="leaderboard-item">
-        <div class="name">${escapeHtml(r.name || 'Anonymous')}</div>
+        <div class="name"><a href="#" data-lb-index="${i}" class="lb-link">${escapeHtml(r.name || 'Anonymous')}</a></div>
         <div class="score">${r.score}/${r.total}</div>
       </div>
     `).join('');
     el.innerHTML = rows;
+    // attach click handlers to links
+    const links = el.querySelectorAll('.lb-link');
+    links.forEach((lnk) => {
+      lnk.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const idx = parseInt(lnk.getAttribute('data-lb-index'), 10);
+        showHistoryFor(list[idx]);
+      });
+    });
   } catch (e) {
     el.innerHTML = '';
   }
+}
+
+function showHistoryFor(entry) {
+  const modal = document.getElementById('historyModal');
+  const body = document.getElementById('modalBody');
+  const title = document.getElementById('modalTitle');
+  if (!modal || !body || !title) return;
+  title.textContent = `Attempt by ${escapeHtml(entry.name || 'Anonymous')} — ${entry.score}/${entry.total}`;
+  // build a list of questions with status
+  const items = quizData.map((q, idx) => {
+    const wrong = entry.wrong.find(w => w.q === idx);
+    const placed = entry.placedAnswers && entry.placedAnswers[idx] ? entry.placedAnswers[idx] : null;
+    const placedDisplay = placed ? String(placed) : '—';
+    const acceptable = q.answers && q.answers.length ? q.answers.join(' / ') : '';
+    const ok = !wrong;
+    return `<div style="padding:0.4rem 0; border-bottom:1px solid rgba(0,0,0,0.04);">
+      <div style="font-weight:700">Q${idx+1}: ${escapeHtml(q.text.replace(/\{\d+\}/g, '____'))}</div>
+      <div>${ok ? '<span class="ok">Correct</span>' : '<span class="miss">Incorrect</span>'} — Your answer: <strong>${escapeHtml(placedDisplay)}</strong></div>
+      <div style="font-size:0.9rem; color:var(--muted, #666)">Correct answer(s): <strong>${escapeHtml(acceptable)}</strong></div>
+    </div>`;
+  }).join('');
+  body.innerHTML = items;
+  modal.setAttribute('aria-hidden','false');
+
+  // wire export button to download this attempt as CSV
+  const exportBtn = document.getElementById('modalExport');
+  if (exportBtn) {
+    // remove previous handler by cloning
+    const newBtn = exportBtn.cloneNode(true);
+    exportBtn.parentNode.replaceChild(newBtn, exportBtn);
+    newBtn.addEventListener('click', () => {
+      try {
+        const rows = [];
+        // header
+        rows.push(['Question #', 'Question Text', 'Your Answer', 'Correct Answer(s)', 'Status']);
+        quizData.forEach((q, idx) => {
+          const placed = entry.placedAnswers && entry.placedAnswers[idx] ? entry.placedAnswers[idx] : '';
+          const correct = q.answers ? q.answers.join(' / ') : '';
+          const wrongObj = entry.wrong.find(w => w.q === idx);
+          const status = wrongObj ? 'Incorrect' : 'Correct';
+          rows.push([String(idx+1), q.text.replace(/\{\d+\}/g, '____'), placed, correct, status]);
+        });
+        // build CSV content with proper escaping
+        const csv = rows.map(r => r.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const namePart = (entry.name || 'attempt').replace(/[^a-z0-9_\-]/gi, '_');
+        const date = new Date(entry.ts || Date.now());
+        const stamp = date.toISOString().replace(/[:.]/g, '-');
+        a.href = url;
+        a.download = `quiz_attempt_${namePart}_${stamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Export failed', err);
+        alert('Failed to export CSV');
+      }
+    });
+  }
+}
+
+// modal close behavior
+const modal = document.getElementById('historyModal');
+if (modal) {
+  const close = document.getElementById('modalClose');
+  close && close.addEventListener('click', () => modal.setAttribute('aria-hidden','true'));
+  modal.querySelector('.modal-backdrop') && modal.querySelector('.modal-backdrop').addEventListener('click', () => modal.setAttribute('aria-hidden','true'));
 }
 
 function escapeHtml(str){

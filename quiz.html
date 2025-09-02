@@ -12,6 +12,11 @@
       <button id="fontDec" aria-label="Decrease font size">A−</button>
     </div>
 
+    <!-- sticky timer shown at the top of the page -->
+    <div id="stickyTimer" class="sticky-timer" aria-hidden="false">
+      Time: 60s
+    </div>
+
     <div class="container" role="application">
       <a class="home-btn" href="index.html" aria-label="Go to homepage"
         >🏠 Home</a
@@ -25,6 +30,7 @@
       <div id="quiz"></div>
 
       <div class="controls">
+        <div id="timer" class="timer">Time: 60s</div>
         <button id="checkAll">Check All</button>
         <button id="resetAll" class="secondary">Reset</button>
       </div>
@@ -58,5 +64,23 @@
     </div>
 
     <script src="script.js" defer></script>
+    <!-- history modal -->
+    <div id="historyModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel" role="dialog" aria-modal="true">
+        <button id="modalClose" class="modal-close" aria-label="Close">
+          ✕
+        </button>
+        <button
+          id="modalExport"
+          class="modal-export"
+          aria-label="Export attempt"
+        >
+          Export CSV
+        </button>
+        <h3 id="modalTitle">Attempt details</h3>
+        <div id="modalBody" class="modal-body"></div>
+      </div>
+    </div>
   </body>
 </html>
