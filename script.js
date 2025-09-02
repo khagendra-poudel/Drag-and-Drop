@@ -12,7 +12,7 @@ const quizData = [
   },
   {
     text: "The programs and instructions used by a computer are called {1}.",
-    answers: ["software"],
+    answers: ["software", "applications"],
     bank: ["software", "programs", "applications", "drivers"],
   },
   {
@@ -46,15 +46,6 @@ const quizData = [
     bank: ["output", "input", "peripheral", "display"],
   },
   {
-    text: "The permanent memory of a computer is called {1}.",
-    answers: [
-      "rom",
-      "read only memory",
-
-    ],
-    bank: ["ROM", "RAM", "SSD", "HDD"],
-  },
-  {
     text: "The temporary memory of a computer is called {1}.",
     answers: [
       "ram",
@@ -64,40 +55,16 @@ const quizData = [
     bank: ["RAM", "ROM", "Cache", "Hard disk"],
   },
   {
-    text: "A computer works with the help of {1} and software.",
-    answers: ["hardware"],
-    bank: ["hardware", "software", "firmware", "peripherals"],
-  },
-  {
-    text: "The brain of the computer is the {1}.",
-    answers: ["cpu", "central processing unit"],
-    bank: ["CPU", "GPU", "ALU", "Motherboard"],
-  },
-  {
     text: "Hard disk, pen drive, and CD are examples of {1} devices.",
     answers: ["storage"],
     bank: ["storage", "memory", "input", "output"],
   },
   {
-    text: "A monitor is also known as a {1}.",
-    answers: [
-      "vdu",
-      "vdu (visual display unit)",
-      "visual display unit",
-     
-    ],
-    bank: ["VDU", "monitor", "display", "screen"],
-  },
-  {
     text: "A computer can only understand {1} language.",
-    answers: ["machine", "machine language"],
+    answers: ["machine", "binary"],
     bank: ["machine", "assembly", "high-level", "binary"],
   },
-  {
-    text: "The speed of a computer is measured in {1}.",
-    answers: ["hz", "Hertz", "hz (hertz)"],
-    bank: ["Hertz", "MegaHertz", "beats/second", "KiloHertz"],
-  },
+ 
 ];
 
 const quizEl = document.getElementById("quiz");
