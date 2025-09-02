@@ -7,6 +7,7 @@
   const lbKey = "quiz-leaderboard";
 
   function renderPreview() {
+    if (!preview) return; // preview removed on this page
     const raw = localStorage.getItem(lbKey);
     if (!raw) {
       preview.innerHTML =
@@ -61,14 +62,6 @@
     // allow navigation to quiz.html (anchor)
   });
 
-  const resetBtn = document.getElementById("resetLeaderboard");
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      if (!confirm("Clear the leaderboard? This cannot be undone.")) return;
-      localStorage.removeItem(lbKey);
-      renderPreview();
-    });
-  }
-
+  // reset will be handled on quiz pages; render preview if present
   renderPreview();
 })();

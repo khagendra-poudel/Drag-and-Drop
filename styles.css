@@ -367,3 +367,14 @@ button:focus {
     right: 8px;
   }
 }
+
+/* True/False quiz specific styles */
+.tf-card { padding: 0.75rem; border-radius: 8px; background: rgba(255,255,255,0.9); margin-bottom:0.6rem; box-shadow: 0 6px 14px rgba(11,55,102,0.04); }
+.tf-stmt { font-weight:700; margin-bottom:0.5rem; }
+.tf-controls { display:flex; gap:0.5rem; align-items:center; }
+.tf-button { padding:0.5rem 0.9rem; border-radius:8px; background:#f2f4f7; color:#05223c; border:0; cursor:pointer; font-weight:700; min-width:84px; }
+.tf-button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(11,55,102,0.06); }
+.tf-button.selected { color:#fff; }
+.tf-button.selected[data-val="true"] { background: linear-gradient(90deg,#dff6e9,#b8f0d1); color:#07532f; }
+.tf-button.selected[data-val="false"] { background: linear-gradient(90deg,#ffdede,#fff1f0); color:#7a1414; }
+

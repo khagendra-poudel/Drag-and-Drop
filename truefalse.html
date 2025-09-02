@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>True / False — Quiz</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <a class="home-btn" href="index.html" aria-label="Go to homepage"
+        >🏠 Home</a
+      >
+      <h1>True / False — Computer Basics</h1>
+      <p class="lead">Read the statement and pick True or False.</p>
+
+      <div id="tf-quiz"></div>
+
+      <div class="controls">
+        <div id="tf-feedback" class="feedback" aria-live="polite"></div>
+        <div style="margin-top: 0.6rem">
+          <button id="tfCheck" class="primary">Check Answers</button>
+          <button id="tfReset" class="secondary">Reset</button>
+        </div>
+      </div>
+
+      <section id="leaderboard" style="margin-top: 1.5rem">
+        <h2 style="margin: 0 0 0.5rem; font-size: 1rem">Leaderboard</h2>
+        <div>
+          <div
+            id="tfLeaderboardList"
+            style="
+              min-height: 48px;
+              padding: 0.6rem;
+              background: linear-gradient(180deg, #fff, #fbfdff);
+              border-radius: 8px;
+            "
+          ></div>
+          <div style="margin-top:0.6rem; text-align:left">
+            <button id="tfResetLeaderboard" class="secondary" style="padding:0.45rem 0.6rem; border-radius:8px">Reset Leaderboard</button>
+          </div>
+        </div>
+            class="secondary"
+            style="padding: 0.45rem 0.6rem; border-radius: 8px"
+          >
+            Reset LB
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <script src="truefalse.js" defer></script>
+  </body>
+</html>
