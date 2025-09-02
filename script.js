@@ -229,10 +229,26 @@ function render() {
         btn.addEventListener('touchstart', function (ev) {
           if (btn.disabled) return;
           const t = ev.changedTouches[0];
-          touchState = { startX: t.clientX, startY: t.clientY, moved: false, ghost: makeGhost(btn, t.clientX, t.clientY) };
-          state.grabbed = w;
-          updateBankState();
-          ev.preventDefault();
+          // don't create the ghost immediately — wait for a short hold or meaningful move
+          const HOLD_DELAY = 180; // ms
+          const MOVE_THRESHOLD = 10; // px
+          if (touchState && touchState.timer) clearTimeout(touchState.timer);
+          touchState = {
+            startX: t.clientX,
+            startY: t.clientY,
+            moved: false,
+            ghost: null,
+            timer: setTimeout(() => {
+              // create ghost after hold
+              if (touchState && !touchState.ghost) {
+                touchState.ghost = makeGhost(btn, t.clientX, t.clientY);
+                // mark grabbed once drag begins
+                state.grabbed = w;
+                updateBankState();
+              }
+            }, HOLD_DELAY),
+          };
+          // don't preventDefault yet; allow scrolling unless we decide it's a drag
         }, { passive: false });
 
         btn.addEventListener('touchmove', function (ev) {
@@ -240,40 +256,53 @@ function render() {
           const t = ev.changedTouches[0];
           const dx = t.clientX - touchState.startX;
           const dy = t.clientY - touchState.startY;
-          if (Math.hypot(dx, dy) > 8) touchState.moved = true;
+          const dist = Math.hypot(dx, dy);
+          if (dist > MOVE_THRESHOLD) touchState.moved = true;
+          // if user moved enough and we don't yet have a ghost, start dragging
+          if (touchState.moved && !touchState.ghost) {
+            if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
+            touchState.ghost = makeGhost(btn, t.clientX, t.clientY);
+            state.grabbed = w;
+            updateBankState();
+            // once ghost exists, prevent scrolling
+            ev.preventDefault();
+          }
           if (touchState.ghost) {
             touchState.ghost.style.left = (t.clientX - btn.offsetWidth / 2) + 'px';
             touchState.ghost.style.top = (t.clientY - btn.offsetHeight / 2) + 'px';
+            ev.preventDefault();
           }
-          ev.preventDefault();
         }, { passive: false });
 
         btn.addEventListener('touchend', function (ev) {
           if (!touchState) return;
           const t = ev.changedTouches[0];
           const ghost = touchState.ghost;
-          // if it was a tap (no meaningful move), toggle selection
-          if (!touchState.moved) {
+          // clear any pending timer
+          if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
+          // if it was a tap (no meaningful move and no ghost created), toggle selection
+          if (!touchState.moved && !ghost) {
             state.grabbed = state.grabbed === w ? null : w;
             updateBankState();
-            if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
             touchState = null;
             ev.preventDefault();
             return;
           }
-          // detect element under touch
-          const target = document.elementFromPoint(t.clientX, t.clientY);
-          let slot = target && target.closest && target.closest('.blank');
-          if (slot) {
-            const slotKey = slot.getAttribute('data-slot');
-            if (slotKey) {
-              const parts = slotKey.split('-');
-              const qIdx = parseInt(parts[0], 10);
-              const slotNum = parts[1];
-              placeWord(qIdx, slotNum, w);
+          // if we had a ghost, detect drop target
+          if (ghost) {
+            const target = document.elementFromPoint(t.clientX, t.clientY);
+            let slot = target && target.closest && target.closest('.blank');
+            if (slot) {
+              const slotKey = slot.getAttribute('data-slot');
+              if (slotKey) {
+                const parts = slotKey.split('-');
+                const qIdx = parseInt(parts[0], 10);
+                const slotNum = parts[1];
+                placeWord(qIdx, slotNum, w);
+              }
             }
+            if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
           }
-          if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
           touchState = null;
           state.grabbed = null;
           updateBankState();
@@ -282,6 +311,7 @@ function render() {
 
         btn.addEventListener('touchcancel', function (ev) {
           if (!touchState) return;
+          if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
           if (touchState.ghost && touchState.ghost.parentNode) touchState.ghost.parentNode.removeChild(touchState.ghost);
           touchState = null;
           state.grabbed = null;
