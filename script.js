@@ -144,31 +144,66 @@ function render() {
   bankItems.forEach((w, bankIdx) => {
       const btn = document.createElement("button");
       btn.className = "word";
-      btn.type = "button";
-      btn.draggable = true;
+  btn.type = "button";
+  // draggable removed: options are clickable only
+  btn.draggable = false;
   btn.setAttribute("data-word", w);
-  // color variant for playful look
-  btn.classList.add(`color-${bankIdx % 4}`);
+      // color variant for playful look
+      btn.classList.add(`color-${bankIdx % 4}`);
       // tag button with its question index and bank index so we can restore it later
       btn.setAttribute("data-q", idx);
       btn.setAttribute("data-bank-idx", bankIdx);
       btn.textContent = w;
-      btn.addEventListener("dragstart", (ev) => {
-        ev.dataTransfer.setData("text/plain", w);
-        ev.dataTransfer.effectAllowed = "move";
-        state.grabbed = w;
-        btn.setAttribute("aria-grabbed", "true");
-  // start timer when user begins moving a word (desktop drag)
-  if (!state.checkedThisRound && !timerInterval) startTimer();
-      });
-      btn.addEventListener("dragend", (ev) => {
-        btn.setAttribute("aria-grabbed", "false");
-        state.grabbed = null;
-      });
+  // drag handlers removed — click-only interaction is used instead
       btn.addEventListener("click", () => {
-  if (btn.disabled) return;
-  state.grabbed = state.grabbed === w ? null : w;
-  updateBankState();
+        // If this button is currently marked as placed (disabled), treat click as remove
+        if (btn.disabled) {
+          // find which slot this button is occupying
+          const placedKeys = Object.keys(state.placedButton);
+          for (const key of placedKeys) {
+            if (state.placedButton[key] === btn) {
+              const parts = key.split('-');
+              removeWord(parseInt(parts[0], 10), parts[1]);
+              return;
+            }
+          }
+          return;
+        }
+
+        // try to place into the first empty blank for this question
+        const qAttr = btn.getAttribute('data-q');
+        const qIdx = qAttr ? parseInt(qAttr, 10) : null;
+        let placed = false;
+        if (qIdx !== null) {
+          // find blanks belonging to this question (data-slot starts with "qIdx-")
+          const slots = quizEl.querySelectorAll(`.blank[data-slot^="${qIdx}-"]`);
+          // prefer the first empty slot
+          let firstSlot = null;
+          for (const s of slots) {
+            if (!firstSlot) firstSlot = s;
+            const isEmpty = s.classList.contains('empty') || s.textContent.trim() === '—';
+            if (isEmpty) {
+              const parts = s.getAttribute('data-slot').split('-');
+              placeWord(parseInt(parts[0], 10), parts[1], w);
+              placed = true;
+              break;
+            }
+          }
+          // if no empty slot found, replace the first slot (so user can change answer)
+          if (!placed && firstSlot) {
+            const parts = firstSlot.getAttribute('data-slot').split('-');
+            placeWord(parseInt(parts[0], 10), parts[1], w);
+            placed = true;
+          }
+        }
+        if (placed) {
+          // start timer if this is the user's first interaction
+          if (!state.checkedThisRound && !timerInterval) startTimer();
+        } else {
+          // fallback: toggle selection for keyboard placement
+          state.grabbed = state.grabbed === w ? null : w;
+          updateBankState();
+        }
       });
       btn.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" || ev.key === " ") {
@@ -176,265 +211,7 @@ function render() {
           btn.click();
         }
       });
-      // touch handlers for mobile drag gestures
-      (function () {
-        let touchState = null; // { startX, startY, moved, ghost }
-        // shared timing and movement thresholds for touch/pointer handlers
-        const HOLD_DELAY = 200; // ms before treating as drag
-        const MOVE_THRESHOLD = 10; // px - small movement tolerated
-
-        function makeGhost(el, x, y) {
-          const g = el.cloneNode(true);
-          g.style.position = 'fixed';
-          g.style.left = (x - el.offsetWidth / 2) + 'px';
-          g.style.top = (y - el.offsetHeight / 2) + 'px';
-          g.style.width = el.offsetWidth + 'px';
-          g.style.pointerEvents = 'none';
-          g.style.zIndex = 9999;
-          g.style.opacity = '0.95';
-          g.style.transform = 'translateZ(0) scale(1.02)';
-          g.classList.add('touch-ghost');
-          document.body.appendChild(g);
-          return g;
-        }
-
-        btn.addEventListener('touchstart', function (ev) {
-          if (btn.disabled) return;
-          const t = ev.changedTouches[0];
-          // cleanup any previous state
-          if (touchState && touchState.timer) { clearTimeout(touchState.timer); }
-          touchState = {
-            startX: t.clientX,
-            startY: t.clientY,
-            lastX: t.clientX,
-            lastY: t.clientY,
-            moved: false,
-            ghost: null,
-            cancelled: false,
-            timer: setTimeout(() => {
-              // if not cancelled, create ghost and begin drag
-              if (touchState && !touchState.cancelled) {
-                touchState.ghost = makeGhost(btn, touchState.lastX, touchState.lastY);
-                state.grabbed = w;
-                updateBankState();
-                if (!state.checkedThisRound && !timerInterval) startTimer();
-              }
-            }, HOLD_DELAY)
-          };
-          // don't preventDefault yet; allow native scroll unless we decide it's a drag
-        }, { passive: false });
-
-        // pointer events fallback (more reliable across browsers)
-        btn.addEventListener('pointerdown', function (ev) {
-          if (btn.disabled) return;
-          if (ev.pointerType !== 'touch') return; // only handle touch pointers here
-          btn.setPointerCapture && btn.setPointerCapture(ev.pointerId);
-          let pState = { startX: ev.clientX, startY: ev.clientY, moved: false, ghost: makeGhost(btn, ev.clientX, ev.clientY), pointerId: ev.pointerId };
-          state.grabbed = w;
-          updateBankState();
-          if (!state.checkedThisRound && !timerInterval) startTimer();
-
-          function onMove(mev) {
-            if (mev.pointerId !== pState.pointerId) return;
-            const dx = mev.clientX - pState.startX;
-            const dy = mev.clientY - pState.startY;
-            const dist = Math.hypot(dx, dy);
-            if (dist > 0) pState.moved = true;
-            if (pState.ghost) {
-              pState.ghost.style.left = (mev.clientX - btn.offsetWidth / 2) + 'px';
-              pState.ghost.style.top = (mev.clientY - btn.offsetHeight / 2) + 'px';
-              mev.preventDefault && mev.preventDefault();
-            }
-          }
-
-          function onUp(uev) {
-            if (uev.pointerId !== pState.pointerId) return;
-            const ghost = pState.ghost;
-            if (!pState.moved && !ghost) {
-              state.grabbed = state.grabbed === w ? null : w;
-              updateBankState();
-              btn.releasePointerCapture && btn.releasePointerCapture(pState.pointerId);
-              cleanup();
-              return;
-            }
-            if (ghost) {
-              const target = document.elementFromPoint(uev.clientX, uev.clientY);
-              let slot = target && target.closest && target.closest('.blank');
-              if (slot) {
-                const slotKey = slot.getAttribute('data-slot');
-                if (slotKey) {
-                  const parts = slotKey.split('-');
-                  const qIdx = parseInt(parts[0], 10);
-                  const slotNum = parts[1];
-                  placeWord(qIdx, slotNum, w);
-                }
-              }
-              if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-            }
-            state.grabbed = null;
-            updateBankState();
-            btn.releasePointerCapture && btn.releasePointerCapture(pState.pointerId);
-            cleanup();
-          }
-
-          function cleanup() {
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onUp);
-          }
-
-          document.addEventListener('pointermove', onMove, { passive: false });
-          document.addEventListener('pointerup', onUp);
-        });
-
-        btn.addEventListener('touchmove', function (ev) {
-          if (!touchState) return;
-          const t = ev.changedTouches[0];
-          touchState.lastX = t.clientX;
-          touchState.lastY = t.clientY;
-          const dx = t.clientX - touchState.startX;
-          const dy = t.clientY - touchState.startY;
-          const adx = Math.abs(dx), ady = Math.abs(dy);
-          // if user is clearly scrolling vertically, cancel the drag intent
-          if (!touchState.ghost) {
-            if (ady > adx && ady > MOVE_THRESHOLD) {
-              // cancel pending drag and allow native scroll
-              touchState.cancelled = true;
-              if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
-              return; // do not preventDefault
-            }
-            // if user moves horizontally beyond threshold, start drag early
-            if (adx > MOVE_THRESHOLD) {
-              if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
-              touchState.ghost = makeGhost(btn, t.clientX, t.clientY);
-              state.grabbed = w;
-              updateBankState();
-              if (!state.checkedThisRound && !timerInterval) startTimer();
-              ev.preventDefault();
-            }
-          } else {
-            // already dragging: move ghost
-            touchState.ghost.style.left = (t.clientX - btn.offsetWidth / 2) + 'px';
-            touchState.ghost.style.top = (t.clientY - btn.offsetHeight / 2) + 'px';
-            ev.preventDefault();
-          }
-        }, { passive: false });
-
-        btn.addEventListener('touchend', function (ev) {
-          if (!touchState) return;
-          const t = ev.changedTouches[0];
-          const ghost = touchState.ghost;
-          // clear any pending timer
-          if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
-          // if not dragging (no ghost) and not cancelled, treat as tap
-          if (!ghost && !touchState.cancelled) {
-            state.grabbed = state.grabbed === w ? null : w;
-            updateBankState();
-            touchState = null;
-            ev.preventDefault();
-            return;
-          }
-          // if we had a ghost, detect drop target
-          if (ghost) {
-            const target = document.elementFromPoint(t.clientX, t.clientY);
-            let slot = target && target.closest && target.closest('.blank');
-            if (slot) {
-              const slotKey = slot.getAttribute('data-slot');
-              if (slotKey) {
-                const parts = slotKey.split('-');
-                const qIdx = parseInt(parts[0], 10);
-                const slotNum = parts[1];
-                placeWord(qIdx, slotNum, w);
-              }
-            }
-            if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-          }
-          touchState = null;
-          state.grabbed = null;
-          updateBankState();
-          ev.preventDefault();
-        }, { passive: false });
-
-        btn.addEventListener('pointerdown', function (ev) {
-          if (btn.disabled) return;
-          if (ev.pointerType !== 'touch') return; // only handle touch pointers here
-          btn.setPointerCapture && btn.setPointerCapture(ev.pointerId);
-          let pState = { startX: ev.clientX, startY: ev.clientY, lastX: ev.clientX, lastY: ev.clientY, moved: false, ghost: null, cancelled: false, pointerId: ev.pointerId, timer: null };
-          pState.timer = setTimeout(() => {
-            if (pState && !pState.cancelled) {
-              pState.ghost = makeGhost(btn, pState.lastX, pState.lastY);
-              state.grabbed = w;
-              updateBankState();
-              if (!state.checkedThisRound && !timerInterval) startTimer();
-            }
-          }, HOLD_DELAY);
-
-          function onMove(mev) {
-            if (mev.pointerId !== pState.pointerId) return;
-            pState.lastX = mev.clientX; pState.lastY = mev.clientY;
-            const dx = mev.clientX - pState.startX;
-            const dy = mev.clientY - pState.startY;
-            const adx = Math.abs(dx), ady = Math.abs(dy);
-            if (!pState.ghost) {
-              if (ady > adx && ady > MOVE_THRESHOLD) {
-                pState.cancelled = true;
-                if (pState.timer) { clearTimeout(pState.timer); pState.timer = null; }
-                return; // allow native scrolling
-              }
-              if (adx > MOVE_THRESHOLD) {
-                if (pState.timer) { clearTimeout(pState.timer); pState.timer = null; }
-                pState.ghost = makeGhost(btn, mev.clientX, mev.clientY);
-                state.grabbed = w;
-                updateBankState();
-                if (!state.checkedThisRound && !timerInterval) startTimer();
-                mev.preventDefault && mev.preventDefault();
-              }
-            } else {
-              pState.ghost.style.left = (mev.clientX - btn.offsetWidth / 2) + 'px';
-              pState.ghost.style.top = (mev.clientY - btn.offsetHeight / 2) + 'px';
-              mev.preventDefault && mev.preventDefault();
-            }
-          }
-
-          function onUp(uev) {
-            if (uev.pointerId !== pState.pointerId) return;
-            if (pState.timer) { clearTimeout(pState.timer); pState.timer = null; }
-            const ghost = pState.ghost;
-            if (!ghost && !pState.cancelled) {
-              state.grabbed = state.grabbed === w ? null : w;
-              updateBankState();
-              btn.releasePointerCapture && btn.releasePointerCapture(pState.pointerId);
-              cleanup();
-              return;
-            }
-            if (ghost) {
-              const target = document.elementFromPoint(uev.clientX, uev.clientY);
-              let slot = target && target.closest && target.closest('.blank');
-              if (slot) {
-                const slotKey = slot.getAttribute('data-slot');
-                if (slotKey) {
-                  const parts = slotKey.split('-');
-                  const qIdx = parseInt(parts[0], 10);
-                  const slotNum = parts[1];
-                  placeWord(qIdx, slotNum, w);
-                }
-              }
-              if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-            }
-            state.grabbed = null;
-            updateBankState();
-            btn.releasePointerCapture && btn.releasePointerCapture(pState.pointerId);
-            cleanup();
-          }
-
-          function cleanup() {
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onUp);
-          }
-
-          document.addEventListener('pointermove', onMove, { passive: false });
-          document.addEventListener('pointerup', onUp);
-        });
-      })();
+  // touch/pointer handlers removed — taps still trigger click handler
       // append the built button into the bank
       bank.appendChild(btn);
     });
@@ -588,8 +365,29 @@ document.addEventListener("keydown", (ev) => {
   }
 });
 
-// initial render
-render();
+// initial render with safety guard so runtime errors show on the page
+try {
+  render();
+} catch (err) {
+  console.error('Render failed', err);
+  const q = document.getElementById('quiz');
+  const f = document.getElementById('feedback');
+  if (q) q.innerHTML = '<div style="color:crimson; padding:1rem; background:#fff6f6; border-radius:6px;">Failed to render quiz — open the console for details.</div>';
+  if (f) f.innerHTML = `<div style="color:crimson">Error: ${String(err.message || err)}</div>`;
+}
+
+// global error capture to help debug disappearing UI
+window.addEventListener('error', (ev) => {
+  try {
+    const msg = ev && ev.message ? ev.message : String(ev);
+    const f = document.getElementById('feedback');
+    const q = document.getElementById('quiz');
+    if (f) f.innerHTML = `<div style="color:crimson">Runtime error: ${escapeHtml(msg)}</div>`;
+    if (q && !q.innerHTML.trim()) q.innerHTML = `<div style="color:crimson; padding:0.6rem; background:#fff6f6;">Runtime error occurred — check console.</div>`;
+  } catch (e) {
+    /* ignore */
+  }
+});
 // timer: 60s default
 const TIMER_DURATION = 60; // seconds
 let timerRemaining = TIMER_DURATION;
@@ -805,4 +603,5 @@ if (resetLbBtn) {
 }
 
 // debugging: expose state
-window._quiz = { quizData, state };
+// expose helpers for debugging in the console
+window._quiz = { quizData, state, render };
