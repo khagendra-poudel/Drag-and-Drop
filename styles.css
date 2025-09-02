@@ -378,3 +378,19 @@ button:focus {
 .tf-button.selected[data-val="true"] { background: linear-gradient(90deg,#dff6e9,#b8f0d1); color:#07532f; }
 .tf-button.selected[data-val="false"] { background: linear-gradient(90deg,#ffdede,#fff1f0); color:#7a1414; }
 
+
+/* colorful link used for next-quiz CTA */
+.next-quiz {
+  display: inline-block;
+  padding: 0.9rem 1.2rem;
+  font-weight: 800;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--accent-3) 0%, var(--accent-4) 100%);
+  color: #05223c;
+  box-shadow: 0 14px 34px rgba(11,55,102,0.10);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  text-decoration: none;
+}
+.next-quiz:hover { transform: translateY(-4px); box-shadow: 0 22px 48px rgba(11,55,102,0.14); }
+.next-quiz:active { transform: translateY(-1px) scale(0.995); }
+
