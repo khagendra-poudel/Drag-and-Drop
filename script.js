@@ -197,8 +197,8 @@ function render() {
           }
         }
         if (placed) {
-          // start timer if this is the user's first interaction
-          if (!state.checkedThisRound && !timerInterval) startTimer();
+          // user placed an answer — do not start an automatic timer (timer removed)
+          // keep existing behavior that will trigger reset on manual submit
         } else {
           // fallback: toggle selection for keyboard placement
           state.grabbed = state.grabbed === w ? null : w;
