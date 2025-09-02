@@ -212,6 +212,9 @@ function render() {
       // touch handlers for mobile drag gestures
       (function () {
         let touchState = null; // { startX, startY, moved, ghost }
+        // shared timing and movement thresholds for touch/pointer handlers
+        const HOLD_DELAY = 200; // ms before treating as drag
+        const MOVE_THRESHOLD = 10; // px - small movement tolerated
 
         function makeGhost(el, x, y) {
           const g = el.cloneNode(true);
@@ -231,49 +234,118 @@ function render() {
         btn.addEventListener('touchstart', function (ev) {
           if (btn.disabled) return;
           const t = ev.changedTouches[0];
-          // don't create the ghost immediately — wait for a short hold or meaningful move
-          const HOLD_DELAY = 180; // ms
-          const MOVE_THRESHOLD = 10; // px
-          if (touchState && touchState.timer) clearTimeout(touchState.timer);
+          // cleanup any previous state
+          if (touchState && touchState.timer) { clearTimeout(touchState.timer); }
           touchState = {
             startX: t.clientX,
             startY: t.clientY,
+            lastX: t.clientX,
+            lastY: t.clientY,
             moved: false,
             ghost: null,
+            cancelled: false,
             timer: setTimeout(() => {
-              // create ghost after hold
-              if (touchState && !touchState.ghost) {
-                touchState.ghost = makeGhost(btn, t.clientX, t.clientY);
-                // mark grabbed once drag begins
+              // if not cancelled, create ghost and begin drag
+              if (touchState && !touchState.cancelled) {
+                touchState.ghost = makeGhost(btn, touchState.lastX, touchState.lastY);
                 state.grabbed = w;
                 updateBankState();
-                // start timer when touch drag begins
                 if (!state.checkedThisRound && !timerInterval) startTimer();
               }
-            }, HOLD_DELAY),
+            }, HOLD_DELAY)
           };
-          // don't preventDefault yet; allow scrolling unless we decide it's a drag
+          // don't preventDefault yet; allow native scroll unless we decide it's a drag
         }, { passive: false });
+
+        // pointer events fallback (more reliable across browsers)
+        btn.addEventListener('pointerdown', function (ev) {
+          if (btn.disabled) return;
+          if (ev.pointerType !== 'touch') return; // only handle touch pointers here
+          btn.setPointerCapture && btn.setPointerCapture(ev.pointerId);
+          let pState = { startX: ev.clientX, startY: ev.clientY, moved: false, ghost: makeGhost(btn, ev.clientX, ev.clientY), pointerId: ev.pointerId };
+          state.grabbed = w;
+          updateBankState();
+          if (!state.checkedThisRound && !timerInterval) startTimer();
+
+          function onMove(mev) {
+            if (mev.pointerId !== pState.pointerId) return;
+            const dx = mev.clientX - pState.startX;
+            const dy = mev.clientY - pState.startY;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 0) pState.moved = true;
+            if (pState.ghost) {
+              pState.ghost.style.left = (mev.clientX - btn.offsetWidth / 2) + 'px';
+              pState.ghost.style.top = (mev.clientY - btn.offsetHeight / 2) + 'px';
+              mev.preventDefault && mev.preventDefault();
+            }
+          }
+
+          function onUp(uev) {
+            if (uev.pointerId !== pState.pointerId) return;
+            const ghost = pState.ghost;
+            if (!pState.moved && !ghost) {
+              state.grabbed = state.grabbed === w ? null : w;
+              updateBankState();
+              btn.releasePointerCapture && btn.releasePointerCapture(pState.pointerId);
+              cleanup();
+              return;
+            }
+            if (ghost) {
+              const target = document.elementFromPoint(uev.clientX, uev.clientY);
+              let slot = target && target.closest && target.closest('.blank');
+              if (slot) {
+                const slotKey = slot.getAttribute('data-slot');
+                if (slotKey) {
+                  const parts = slotKey.split('-');
+                  const qIdx = parseInt(parts[0], 10);
+                  const slotNum = parts[1];
+                  placeWord(qIdx, slotNum, w);
+                }
+              }
+              if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            }
+            state.grabbed = null;
+            updateBankState();
+            btn.releasePointerCapture && btn.releasePointerCapture(pState.pointerId);
+            cleanup();
+          }
+
+          function cleanup() {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+          }
+
+          document.addEventListener('pointermove', onMove, { passive: false });
+          document.addEventListener('pointerup', onUp);
+        });
 
         btn.addEventListener('touchmove', function (ev) {
           if (!touchState) return;
           const t = ev.changedTouches[0];
+          touchState.lastX = t.clientX;
+          touchState.lastY = t.clientY;
           const dx = t.clientX - touchState.startX;
           const dy = t.clientY - touchState.startY;
-          const dist = Math.hypot(dx, dy);
-          if (dist > MOVE_THRESHOLD) touchState.moved = true;
-          // if user moved enough and we don't yet have a ghost, start dragging
-          if (touchState.moved && !touchState.ghost) {
-            if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
-            touchState.ghost = makeGhost(btn, t.clientX, t.clientY);
-            state.grabbed = w;
-            updateBankState();
-            // start timer once the user has initiated a touch-drag
-            if (!state.checkedThisRound && !timerInterval) startTimer();
-            // once ghost exists, prevent scrolling
-            ev.preventDefault();
-          }
-          if (touchState.ghost) {
+          const adx = Math.abs(dx), ady = Math.abs(dy);
+          // if user is clearly scrolling vertically, cancel the drag intent
+          if (!touchState.ghost) {
+            if (ady > adx && ady > MOVE_THRESHOLD) {
+              // cancel pending drag and allow native scroll
+              touchState.cancelled = true;
+              if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
+              return; // do not preventDefault
+            }
+            // if user moves horizontally beyond threshold, start drag early
+            if (adx > MOVE_THRESHOLD) {
+              if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
+              touchState.ghost = makeGhost(btn, t.clientX, t.clientY);
+              state.grabbed = w;
+              updateBankState();
+              if (!state.checkedThisRound && !timerInterval) startTimer();
+              ev.preventDefault();
+            }
+          } else {
+            // already dragging: move ghost
             touchState.ghost.style.left = (t.clientX - btn.offsetWidth / 2) + 'px';
             touchState.ghost.style.top = (t.clientY - btn.offsetHeight / 2) + 'px';
             ev.preventDefault();
@@ -286,8 +358,8 @@ function render() {
           const ghost = touchState.ghost;
           // clear any pending timer
           if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
-          // if it was a tap (no meaningful move and no ghost created), toggle selection
-          if (!touchState.moved && !ghost) {
+          // if not dragging (no ghost) and not cancelled, treat as tap
+          if (!ghost && !touchState.cancelled) {
             state.grabbed = state.grabbed === w ? null : w;
             updateBankState();
             touchState = null;
@@ -315,16 +387,89 @@ function render() {
           ev.preventDefault();
         }, { passive: false });
 
-        btn.addEventListener('touchcancel', function (ev) {
-          if (!touchState) return;
-          if (touchState.timer) { clearTimeout(touchState.timer); touchState.timer = null; }
-          if (touchState.ghost && touchState.ghost.parentNode) touchState.ghost.parentNode.removeChild(touchState.ghost);
-          touchState = null;
-          state.grabbed = null;
-          updateBankState();
+        btn.addEventListener('pointerdown', function (ev) {
+          if (btn.disabled) return;
+          if (ev.pointerType !== 'touch') return; // only handle touch pointers here
+          btn.setPointerCapture && btn.setPointerCapture(ev.pointerId);
+          let pState = { startX: ev.clientX, startY: ev.clientY, lastX: ev.clientX, lastY: ev.clientY, moved: false, ghost: null, cancelled: false, pointerId: ev.pointerId, timer: null };
+          pState.timer = setTimeout(() => {
+            if (pState && !pState.cancelled) {
+              pState.ghost = makeGhost(btn, pState.lastX, pState.lastY);
+              state.grabbed = w;
+              updateBankState();
+              if (!state.checkedThisRound && !timerInterval) startTimer();
+            }
+          }, HOLD_DELAY);
+
+          function onMove(mev) {
+            if (mev.pointerId !== pState.pointerId) return;
+            pState.lastX = mev.clientX; pState.lastY = mev.clientY;
+            const dx = mev.clientX - pState.startX;
+            const dy = mev.clientY - pState.startY;
+            const adx = Math.abs(dx), ady = Math.abs(dy);
+            if (!pState.ghost) {
+              if (ady > adx && ady > MOVE_THRESHOLD) {
+                pState.cancelled = true;
+                if (pState.timer) { clearTimeout(pState.timer); pState.timer = null; }
+                return; // allow native scrolling
+              }
+              if (adx > MOVE_THRESHOLD) {
+                if (pState.timer) { clearTimeout(pState.timer); pState.timer = null; }
+                pState.ghost = makeGhost(btn, mev.clientX, mev.clientY);
+                state.grabbed = w;
+                updateBankState();
+                if (!state.checkedThisRound && !timerInterval) startTimer();
+                mev.preventDefault && mev.preventDefault();
+              }
+            } else {
+              pState.ghost.style.left = (mev.clientX - btn.offsetWidth / 2) + 'px';
+              pState.ghost.style.top = (mev.clientY - btn.offsetHeight / 2) + 'px';
+              mev.preventDefault && mev.preventDefault();
+            }
+          }
+
+          function onUp(uev) {
+            if (uev.pointerId !== pState.pointerId) return;
+            if (pState.timer) { clearTimeout(pState.timer); pState.timer = null; }
+            const ghost = pState.ghost;
+            if (!ghost && !pState.cancelled) {
+              state.grabbed = state.grabbed === w ? null : w;
+              updateBankState();
+              btn.releasePointerCapture && btn.releasePointerCapture(pState.pointerId);
+              cleanup();
+              return;
+            }
+            if (ghost) {
+              const target = document.elementFromPoint(uev.clientX, uev.clientY);
+              let slot = target && target.closest && target.closest('.blank');
+              if (slot) {
+                const slotKey = slot.getAttribute('data-slot');
+                if (slotKey) {
+                  const parts = slotKey.split('-');
+                  const qIdx = parseInt(parts[0], 10);
+                  const slotNum = parts[1];
+                  placeWord(qIdx, slotNum, w);
+                }
+              }
+              if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            }
+            state.grabbed = null;
+            updateBankState();
+            btn.releasePointerCapture && btn.releasePointerCapture(pState.pointerId);
+            cleanup();
+          }
+
+          function cleanup() {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+          }
+
+          document.addEventListener('pointermove', onMove, { passive: false });
+          document.addEventListener('pointerup', onUp);
         });
       })();
-  bank.appendChild(btn);
+      // append the built button into the bank
+      bank.appendChild(btn);
     });
 
     qWrap.appendChild(bankTitle);
@@ -338,17 +483,17 @@ function placeWord(qIdx, slotNum, word) {
   // if there's already a word placed here, restore its bank button
   if (state.placedButton[slotKey]) {
     const prevBtn = state.placedButton[slotKey];
-  prevBtn.disabled = false;
-  prevBtn.classList.remove("placed");
-  delete state.placedButton[slotKey];
+    prevBtn.disabled = false;
+    prevBtn.classList.remove("placed");
+    delete state.placedButton[slotKey];
   }
 
   // find the bank button for the new word within this question and hide/disable it
   const bankBtn = quizEl.querySelector(`.word[data-word="${CSS.escape(word)}"][data-q="${qIdx}"]`);
   if (bankBtn) {
-  bankBtn.disabled = true;
-  bankBtn.classList.add("placed");
-  state.placedButton[slotKey] = bankBtn;
+    bankBtn.disabled = true;
+    bankBtn.classList.add("placed");
+    state.placedButton[slotKey] = bankBtn;
   }
 
   state.placement[slotKey] = word;
@@ -356,11 +501,11 @@ function placeWord(qIdx, slotNum, word) {
   if (slotEl) {
     slotEl.textContent = word;
     slotEl.classList.remove("empty", "incorrect", "correct");
-  // small pulse animation
-  slotEl.classList.add("pulse", "placed-in");
-  // remove placed-in after animation
-  setTimeout(() => slotEl.classList.remove("placed-in"), 300);
-  setTimeout(() => slotEl.classList.remove("pulse"), 220);
+    // small pulse animation
+    slotEl.classList.add("pulse", "placed-in");
+    // remove placed-in after animation
+    setTimeout(() => slotEl.classList.remove("placed-in"), 300);
+    setTimeout(() => slotEl.classList.remove("pulse"), 220);
   }
   updateBankState();
 }
@@ -370,8 +515,8 @@ function removeWord(qIdx, slotNum) {
   // restore bank button state if we had marked one as placed
   if (state.placedButton[key]) {
     const b = state.placedButton[key];
-  b.disabled = false;
-  b.classList.remove("placed");
+    b.disabled = false;
+    b.classList.remove("placed");
     delete state.placedButton[key];
   }
   delete state.placement[key];
@@ -380,9 +525,9 @@ function removeWord(qIdx, slotNum) {
     slotEl.textContent = "—";
     slotEl.classList.add("empty");
     slotEl.classList.remove("correct", "incorrect");
-  // trigger removed animation
-  slotEl.classList.add("removed");
-  setTimeout(() => slotEl.classList.remove("removed"), 220);
+    // trigger removed animation
+    slotEl.classList.add("removed");
+    setTimeout(() => slotEl.classList.remove("removed"), 220);
   }
 }
 
